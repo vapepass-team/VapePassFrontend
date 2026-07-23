@@ -5,6 +5,8 @@ import { Check, Calendar, ArrowRight } from 'lucide-react';
 import AnimateIn from '@/components/AnimateIn';
 import { Input, FormField } from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
+import { ApiError, fieldErrorsToMap } from '@/lib/api';
+import { submitContactLead } from '@/lib/contact-api';
 
 const FEATURES_LEFT = [
   'AI Flavor Sommelier',
@@ -18,11 +20,10 @@ const FEATURES_RIGHT = [
   'Full dashboard access',
 ];
 
-const STORAGE_KEY = 'vapepass_pricing_signups';
-
 const initialForm = {
   storeName: '',
   ownerName: '',
+  email: '',
   phone: '',
   startDate: '',
   message: '',
@@ -33,16 +34,23 @@ export default function PricingSection() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const set = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+    if (submitError) setSubmitError('');
   };
 
   const validate = () => {
     const next = {};
     if (!form.storeName.trim()) next.storeName = 'Store name is required';
     if (!form.ownerName.trim()) next.ownerName = "Owner's name is required";
+    if (!form.email.trim()) {
+      next.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      next.email = 'Enter a valid email address';
+    }
     if (!form.phone.trim()) next.phone = 'Phone number is required';
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -53,13 +61,27 @@ export default function PricingSection() {
     if (!validate()) return;
 
     setLoading(true);
+    setSubmitError('');
     try {
-      const entry = { ...form, submittedAt: new Date().toISOString() };
-      const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, entry]));
-      await new Promise((r) => setTimeout(r, 600));
+      await submitContactLead({
+        storeName: form.storeName.trim(),
+        ownerName: form.ownerName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        startDate: form.startDate || undefined,
+        message: form.message.trim(),
+      });
       setSubmitted(true);
       setForm(initialForm);
+    } catch (err) {
+      if (err instanceof ApiError && err.errors?.length) {
+        setErrors(fieldErrorsToMap(err.errors));
+      }
+      setSubmitError(
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to submit right now. Please try again in a moment.'
+      );
     } finally {
       setLoading(false);
     }
@@ -118,7 +140,9 @@ export default function PricingSection() {
               {submitted ? (
                 <div className="text-center py-6 animate-fade-in" role="status">
                   <p className="text-lg font-bold text-[#111827] mb-2">You&apos;re on the list!</p>
-                  <p className="text-[#6b7280] text-sm">We&apos;ll reach out shortly to get your store set up.</p>
+                  <p className="text-[#6b7280] text-sm">
+                    We&apos;ll reach out shortly. Check your email for a confirmation.
+                  </p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} noValidate>
@@ -135,6 +159,7 @@ export default function PricingSection() {
                         value={form.storeName}
                         onChange={set('storeName')}
                         error={Boolean(errors.storeName)}
+                        disabled={loading}
                       />
                     </FormField>
 
@@ -147,6 +172,21 @@ export default function PricingSection() {
                         value={form.ownerName}
                         onChange={set('ownerName')}
                         error={Boolean(errors.ownerName)}
+                        disabled={loading}
+                      />
+                    </FormField>
+
+                    <FormField label="Email" htmlFor="contactEmail" error={errors.email} required className="[&_label]:text-[13px] [&_label]:text-[#6b7280] [&_label]:font-normal [&_label]:mb-1.5">
+                      <Input
+                        id="contactEmail"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@store.com"
+                        className="h-11 rounded-lg"
+                        value={form.email}
+                        onChange={set('email')}
+                        error={Boolean(errors.email)}
+                        disabled={loading}
                       />
                     </FormField>
 
@@ -160,10 +200,11 @@ export default function PricingSection() {
                         value={form.phone}
                         onChange={set('phone')}
                         error={Boolean(errors.phone)}
+                        disabled={loading}
                       />
                     </FormField>
 
-                    <FormField label="When do you want to start?" htmlFor="startDate" className="[&_label]:text-[13px] [&_label]:text-[#6b7280] [&_label]:font-normal [&_label]:mb-1.5">
+                    <FormField label="When do you want to start?" htmlFor="startDate" className="sm:col-span-2 [&_label]:text-[13px] [&_label]:text-[#6b7280] [&_label]:font-normal [&_label]:mb-1.5">
                       <div className="relative">
                         <Input
                           id="startDate"
@@ -172,6 +213,7 @@ export default function PricingSection() {
                           className="h-11 rounded-lg pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                           value={form.startDate}
                           onChange={set('startDate')}
+                          disabled={loading}
                         />
                         <Calendar
                           size={16}
@@ -194,15 +236,26 @@ export default function PricingSection() {
                       rows={4}
                       value={form.message}
                       onChange={set('message')}
+                      disabled={loading}
                       placeholder="Tell us about your store, goals, or any questions…"
                       className={[
                         'w-full resize-y rounded-lg border bg-surface px-3.5 py-3 text-sm text-ink',
                         'placeholder:text-muted transition-all duration-[var(--duration-fast)]',
                         'focus:outline-none focus:ring-[3px]',
                         'border-line focus:border-brand-500 focus:ring-brand-500/15',
+                        'disabled:opacity-50',
                       ].join(' ')}
                     />
                   </FormField>
+
+                  {submitError && (
+                    <p
+                      className="mb-4 rounded-xl border border-red-200 bg-danger-50 px-4 py-3 text-sm text-danger-600"
+                      role="alert"
+                    >
+                      {submitError}
+                    </p>
+                  )}
 
                   <button
                     type="submit"
