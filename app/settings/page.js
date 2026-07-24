@@ -330,6 +330,7 @@ export default function Settings() {
                 <p className="font-bold text-ink text-lg tracking-tight truncate">
                   {profile.name || 'Your Store'}
                 </p>
+                {/* Logo upload UI temporarily hidden
                 <label className="mt-2 inline-block cursor-pointer">
                   <Button variant="secondary" size="sm" as="span" disabled={logoUploading || saving}>
                     {logoUploading ? 'Uploading…' : storeForm.logo || logoPreview ? 'Change Logo' : 'Upload Logo'}
@@ -347,6 +348,7 @@ export default function Settings() {
                   JPEG, PNG, WebP, or GIF · max 5 MB
                   {logoFile ? ` · ${logoFile.name}` : ''}
                 </p>
+                */}
               </div>
             </div>
 
