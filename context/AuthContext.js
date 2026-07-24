@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getToken, setToken } from '@/lib/api';
 import * as authApi from '@/lib/auth-api';
 import * as storeApi from '@/lib/store-api';
+import { withResolvedStoreMedia } from '@/lib/media';
 
 const AuthContext = createContext(null);
 
@@ -15,6 +16,10 @@ function isStoreDocument(value) {
     !Array.isArray(value) &&
     value.subscriptionStatus != null
   );
+}
+
+function commitStore(setter, store) {
+  setter(withResolvedStoreMedia(store));
 }
 
 export function AuthProvider({ children }) {
@@ -69,7 +74,7 @@ export function AuthProvider({ children }) {
         setStoreLoading(true);
         try {
           const storeData = await resolveStoreForUser(profile);
-          setStore(storeData);
+          commitStore(setStore, storeData);
           setStoreError(null);
         } catch (err) {
           setStore(null);
@@ -98,7 +103,7 @@ export function AuthProvider({ children }) {
   const applyAuth = useCallback((data) => {
     if (data.accessToken) setToken(data.accessToken);
     if (data.user) setUser(data.user);
-    if (data.store) setStore(data.store);
+    if (data.store) commitStore(setStore, data.store);
   }, []);
 
   const login = useCallback(async (email, password) => {
@@ -131,7 +136,7 @@ export function AuthProvider({ children }) {
 
     // Set user + store together so guards never see auth without subscription status
     setUser(data.user);
-    setStore(storeData);
+    commitStore(setStore, storeData);
     setStoreError(null);
 
     return { ...data, store: storeData };
@@ -167,8 +172,8 @@ export function AuthProvider({ children }) {
     setStoreError(null);
     try {
       const storeData = await storeApi.getStore();
-      setStore(storeData);
-      return storeData;
+      commitStore(setStore, storeData);
+      return withResolvedStoreMedia(storeData);
     } catch (err) {
       setStoreError(
         err?.message || 'Unable to verify subscription status. Please try again.'
@@ -181,8 +186,9 @@ export function AuthProvider({ children }) {
 
   const updateStore = useCallback(async (payload, logoFile = null) => {
     const updated = await storeApi.updateStoreSettings(payload, logoFile);
-    setStore(updated);
-    return updated;
+    const resolved = withResolvedStoreMedia(updated);
+    commitStore(setStore, resolved);
+    return resolved;
   }, []);
 
   const updateProfile = useCallback(async (payload) => {

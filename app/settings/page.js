@@ -27,6 +27,7 @@ import {
 import { getSubscriptionBadgeVariant, getSubscriptionStatusLabel, canAccessDashboard } from '@/lib/subscription';
 import AutoSubscriptionSettings from '@/components/settings/AutoSubscriptionSettings';
 import ChangePasswordCard from '@/components/settings/ChangePasswordCard';
+import { resolveMediaUrl } from '@/lib/media';
 
 export default function Settings() {
   const { toast } = useToast();
@@ -307,7 +308,7 @@ export default function Settings() {
               <div className="relative flex-shrink-0">
                 {(logoPreview || storeForm.logo) && !logoBroken ? (
                   <img
-                    src={logoPreview || storeForm.logo}
+                    src={logoPreview || resolveMediaUrl(storeForm.logo)}
                     alt={`${profile.name || 'Store'} logo`}
                     className="w-16 h-16 rounded-2xl object-cover border border-line-subtle shadow-sm"
                     onError={() => setLogoBroken(true)}

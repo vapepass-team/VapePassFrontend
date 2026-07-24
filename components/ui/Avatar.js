@@ -1,4 +1,10 @@
+'use client';
+
+import { useState } from 'react';
+import { resolveMediaUrl } from '@/lib/media';
+
 export default function Avatar({ name, src, size = 'md', color, className = '' }) {
+  const [broken, setBroken] = useState(false);
   const sizes = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
@@ -6,11 +12,12 @@ export default function Avatar({ name, src, size = 'md', color, className = '' }
     xl: 'w-16 h-16 text-xl',
   };
   const initial = name?.charAt(0)?.toUpperCase() || '?';
+  const resolvedSrc = !broken ? resolveMediaUrl(src) : null;
 
-  if (src) {
+  if (resolvedSrc) {
     return (
       <img
-        src={src}
+        src={resolvedSrc}
         alt={name ? `${name}'s avatar` : 'Avatar'}
         className={[
           'rounded-full object-cover flex-shrink-0',
@@ -18,6 +25,7 @@ export default function Avatar({ name, src, size = 'md', color, className = '' }
           className,
         ].join(' ')}
         loading="lazy"
+        onError={() => setBroken(true)}
       />
     );
   }
