@@ -26,6 +26,7 @@ import {
 } from '@/lib/billing-api';
 import { getSubscriptionBadgeVariant, getSubscriptionStatusLabel, canAccessDashboard } from '@/lib/subscription';
 import AutoSubscriptionSettings from '@/components/settings/AutoSubscriptionSettings';
+import ChangePasswordCard from '@/components/settings/ChangePasswordCard';
 
 export default function Settings() {
   const { toast } = useToast();
@@ -48,7 +49,6 @@ export default function Settings() {
   const [resetSending, setResetSending] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState('');
-  const [devResetToken, setDevResetToken] = useState(null);
   const [profile, setProfile] = useState({
     name: '',
     email: '',
@@ -632,22 +632,9 @@ export default function Settings() {
         )}
 
         {tab === 'security' && (
-          <Card className="animate-fade-in space-y-6">
-            <div>
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
-                  <KeyRound size={18} className="text-brand-600" aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-ink mb-1">Forgot password</h3>
-                  <p className="text-body text-xs">
-                    We&apos;ll email a secure, time-limited reset link to your registered address.
-                    The link expires after one hour and can only be used once.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-line bg-canvas/60 px-4 py-3 mb-4">
+          <div className="animate-fade-in space-y-5">
+            <Card>
+              <div className="rounded-xl border border-line bg-canvas/60 px-4 py-3 mb-5">
                 <p className="text-xs text-muted mb-1">Registered email</p>
                 <p className="text-sm font-medium text-ink flex items-center gap-2">
                   <Mail size={14} className="text-muted shrink-0" aria-hidden="true" />
@@ -655,31 +642,46 @@ export default function Settings() {
                 </p>
               </div>
 
+              <ChangePasswordCard onNotify={(message, variant) => toast(message, variant)} />
+            </Card>
+
+            <Card>
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+                  <KeyRound size={18} className="text-brand-600" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-ink mb-1">Forgot password</h3>
+                  <p className="text-body text-xs">
+                    Don&apos;t remember your current password? We&apos;ll email a verification code
+                    to your registered address so you can set a new one. The code expires in 10
+                    minutes and can only be used once.
+                  </p>
+                </div>
+              </div>
+
               {resetSent ? (
                 <div className="rounded-xl border border-green-200 bg-success-50 px-4 py-3 space-y-2">
                   <p className="text-sm font-medium text-success-700">
-                    Password reset email sent successfully.
+                    Verification code sent successfully.
                   </p>
                   <p className="text-xs text-body">
-                    Check your inbox for a link to create a new password. If you don&apos;t see it,
-                    check spam or try again in a few minutes.
+                    Check your inbox, then{' '}
+                    <Link
+                      href="/forgot-password?step=otp"
+                      className="text-brand-600 hover:text-brand-700 font-medium"
+                    >
+                      enter the code
+                    </Link>{' '}
+                    to choose a new password. If you don&apos;t see it, check spam or try again in a
+                    few minutes.
                   </p>
-                  {devResetToken && (
-                    <p className="text-xs text-body pt-1">
-                      Development link:{' '}
-                      <Link
-                        href={`/reset-password?token=${devResetToken}`}
-                        className="text-brand-600 hover:text-brand-700 font-medium break-all"
-                      >
-                        Reset your password
-                      </Link>
-                    </p>
-                  )}
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <Button
                     type="button"
+                    variant="secondary"
                     size="sm"
                     disabled={resetSending || !user?.email}
                     onClick={async () => {
@@ -687,15 +689,14 @@ export default function Settings() {
                       setResetError('');
                       setResetSending(true);
                       try {
-                        const data = await forgotPassword(user.email);
-                        if (data?.resetToken) setDevResetToken(data.resetToken);
+                        await forgotPassword(user.email);
                         setResetSent(true);
-                        toast('Password reset email sent successfully', 'success');
+                        toast('Verification code sent successfully', 'success');
                       } catch (err) {
                         const message =
                           err instanceof ApiError
                             ? err.message
-                            : 'Unable to send reset email. Please try again.';
+                            : 'Unable to send verification code. Please try again.';
                         setResetError(message);
                         toast(message, 'error');
                       } finally {
@@ -703,7 +704,7 @@ export default function Settings() {
                       }
                     }}
                   >
-                    {resetSending ? 'Sending…' : 'Send reset email'}
+                    {resetSending ? 'Sending…' : 'Email me a reset code'}
                   </Button>
                   <Link
                     href="/forgot-password"
@@ -719,8 +720,8 @@ export default function Settings() {
                   {resetError}
                 </p>
               )}
-            </div>
-          </Card>
+            </Card>
+          </div>
         )}
       </div>
       </ContentReveal>

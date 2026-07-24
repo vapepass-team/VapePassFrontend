@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, CheckCircle } from 'lucide-react';
 import AuthLayout from '@/components/AuthLayout';
 import AuthGuard from '@/components/AuthGuard';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
+import OtpInput from '@/components/ui/OtpInput';
 import { useAuth } from '@/context/AuthContext';
 import { verifyEmail, resendVerification } from '@/lib/auth-api';
 import { ApiError } from '@/lib/api';
@@ -14,93 +15,6 @@ import { needsEmailVerification } from '@/lib/email-verification';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN_SEC = 60;
-
-function OtpInputs({ value, onChange, disabled, error }) {
-  const inputsRef = useRef([]);
-
-  const digits = Array.from({ length: OTP_LENGTH }, (_, i) => value[i] || '');
-
-  const focusAt = (index) => {
-    const el = inputsRef.current[index];
-    if (el) el.focus();
-  };
-
-  const updateDigit = (index, char) => {
-    const next = digits.slice();
-    next[index] = char;
-    onChange(next.join('').slice(0, OTP_LENGTH));
-  };
-
-  const handleChange = (index, raw) => {
-    const cleaned = raw.replace(/\D/g, '');
-    if (!cleaned) {
-      updateDigit(index, '');
-      return;
-    }
-
-    if (cleaned.length > 1) {
-      const chars = cleaned.slice(0, OTP_LENGTH - index).split('');
-      const next = digits.slice();
-      chars.forEach((c, offset) => {
-        next[index + offset] = c;
-      });
-      onChange(next.join('').slice(0, OTP_LENGTH));
-      focusAt(Math.min(index + chars.length, OTP_LENGTH - 1));
-      return;
-    }
-
-    updateDigit(index, cleaned);
-    if (index < OTP_LENGTH - 1) focusAt(index + 1);
-  };
-
-  const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
-      e.preventDefault();
-      updateDigit(index - 1, '');
-      focusAt(index - 1);
-    }
-    if (e.key === 'ArrowLeft' && index > 0) focusAt(index - 1);
-    if (e.key === 'ArrowRight' && index < OTP_LENGTH - 1) focusAt(index + 1);
-  };
-
-  const handlePaste = (e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LENGTH);
-    if (!pasted) return;
-    onChange(pasted);
-    focusAt(Math.min(pasted.length, OTP_LENGTH) - 1);
-  };
-
-  return (
-    <div className="flex justify-center gap-2 sm:gap-2.5" onPaste={handlePaste}>
-      {digits.map((digit, index) => (
-        <input
-          key={index}
-          ref={(el) => {
-            inputsRef.current[index] = el;
-          }}
-          type="text"
-          inputMode="numeric"
-          autoComplete={index === 0 ? 'one-time-code' : 'off'}
-          maxLength={1}
-          disabled={disabled}
-          value={digit}
-          aria-label={`Digit ${index + 1}`}
-          onChange={(e) => handleChange(index, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(index, e)}
-          className={[
-            'w-11 h-12 sm:w-12 sm:h-12 text-center text-lg font-semibold rounded-xl border bg-surface text-ink',
-            'focus:outline-none focus:ring-[3px] transition-all',
-            error
-              ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20'
-              : 'border-line focus:border-brand-500 focus:ring-brand-500/15',
-            disabled ? 'opacity-60' : '',
-          ].join(' ')}
-        />
-      ))}
-    </div>
-  );
-}
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -249,14 +163,16 @@ function VerifyEmailContent() {
             </p>
           )}
 
-          <OtpInputs
+          <OtpInput
             value={otp}
             onChange={(next) => {
               setOtp(next);
               if (error) setError('');
             }}
+            length={OTP_LENGTH}
             disabled={verifying}
             error={Boolean(error)}
+            autoFocus
           />
 
           <Button

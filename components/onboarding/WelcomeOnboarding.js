@@ -255,6 +255,9 @@ export default function WelcomeOnboarding({ helpOpen = false, onHelpOpenChange }
         websiteUrl: form.websiteUrl.trim(),
         message: form.message.trim(),
         storeId,
+        // Distinguishes the sidebar "Need Help" entry point from the
+        // onboarding "Request Assistance" card in admin notifications
+        source: mode === 'help' ? 'need_help' : 'request_assistance',
       });
 
       if (storeId) {
