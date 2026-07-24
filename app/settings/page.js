@@ -62,6 +62,8 @@ export default function Settings() {
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  /** Stored logos can 404 if the file is missing — fall back to initials */
+  const [logoBroken, setLogoBroken] = useState(false);
   const [billingInfo, setBillingInfo] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingFetching, setBillingFetching] = useState(false);
@@ -92,6 +94,7 @@ export default function Settings() {
   }, [store, user]);
 
   useEffect(() => {
+    setLogoBroken(false);
     if (!logoFile) {
       setLogoPreview(null);
       return undefined;
@@ -100,6 +103,10 @@ export default function Settings() {
     setLogoPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [logoFile]);
+
+  useEffect(() => {
+    setLogoBroken(false);
+  }, [storeForm.logo]);
 
   const handleLogoSelect = async (event) => {
     const file = event.target.files?.[0];
@@ -298,11 +305,12 @@ export default function Settings() {
           <Card className="animate-fade-in space-y-6">
             <div className="flex items-center gap-4 pb-6 border-b border-line-subtle">
               <div className="relative flex-shrink-0">
-                {logoPreview || storeForm.logo ? (
+                {(logoPreview || storeForm.logo) && !logoBroken ? (
                   <img
                     src={logoPreview || storeForm.logo}
                     alt={`${profile.name || 'Store'} logo`}
                     className="w-16 h-16 rounded-2xl object-cover border border-line-subtle shadow-sm"
+                    onError={() => setLogoBroken(true)}
                   />
                 ) : (
                   <Avatar name={profile.name} size="xl" />
