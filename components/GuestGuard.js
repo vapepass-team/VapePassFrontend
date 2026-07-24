@@ -4,10 +4,15 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { canAccessDashboard } from '@/lib/subscription';
+import { needsEmailVerification } from '@/lib/email-verification';
 import Spinner from '@/components/ui/Spinner';
 
-/** Redirect authenticated users away from login/register pages */
-export default function GuestGuard({ children, redirectTo }) {
+/**
+ * Redirect authenticated users away from guest-only pages (login/register).
+ * Pass allowAuthenticated for flows that signed-in users may also use
+ * (forgot/reset password).
+ */
+export default function GuestGuard({ children, redirectTo, allowAuthenticated = false }) {
   const { user, store, isAuthenticated, loading, storeLoading, storeError } = useAuth();
   const router = useRouter();
 
@@ -15,6 +20,7 @@ export default function GuestGuard({ children, redirectTo }) {
   const awaitingStore = needsStore && !store && !storeError;
 
   useEffect(() => {
+    if (allowAuthenticated) return;
     if (loading || storeLoading || awaitingStore) return;
     if (!isAuthenticated) return;
 
@@ -25,11 +31,15 @@ export default function GuestGuard({ children, redirectTo }) {
     if (!destination) {
       if (user?.role === 'admin') destination = '/admin';
       else if (!store) return;
+      else if (needsEmailVerification(user)) destination = '/verify-email';
       else if (!canAccessDashboard(store.subscriptionStatus)) destination = '/subscribe';
       else destination = '/dashboard';
+    } else if (needsEmailVerification(user) && destination === '/subscribe') {
+      destination = '/verify-email';
     }
     router.replace(destination);
   }, [
+    allowAuthenticated,
     loading,
     storeLoading,
     awaitingStore,
@@ -42,7 +52,7 @@ export default function GuestGuard({ children, redirectTo }) {
     redirectTo,
   ]);
 
-  if (loading || storeLoading || awaitingStore) {
+  if (loading || (!allowAuthenticated && (storeLoading || awaitingStore))) {
     return (
       <div className="min-h-screen flex items-center justify-center gradient-mesh">
         <Spinner size="lg" />
@@ -50,7 +60,7 @@ export default function GuestGuard({ children, redirectTo }) {
     );
   }
 
-  if (isAuthenticated && !(needsStore && storeError)) return null;
+  if (!allowAuthenticated && isAuthenticated && !(needsStore && storeError)) return null;
 
   return children;
 }

@@ -11,11 +11,13 @@ import Avatar from '@/components/ui/Avatar';
 import { Input, FormField } from '@/components/ui/Input';
 import { ContentReveal } from '@/components/ui/Skeleton';
 import SettingsSkeleton, { BillingSkeleton } from '@/components/skeletons/SettingsSkeleton';
-import { Save, CheckCircle, CreditCard, Zap, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Save, CheckCircle, CreditCard, Zap, AlertTriangle, RefreshCw, KeyRound, Mail } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/context/AuthContext';
 import { storeToForm, CANADIAN_PROVINCES, COUNTRY_OPTIONS } from '@/lib/store-utils';
 import { ApiError, fieldErrorsToMap } from '@/lib/api';
+import { forgotPassword } from '@/lib/auth-api';
+import Link from 'next/link';
 import {
   getBillingInfo,
   createCheckoutSession,
@@ -37,10 +39,16 @@ export default function Settings() {
     loading: authLoading,
     storeLoading,
   } = useAuth();
-  const initialTab = searchParams.get('tab') === 'billing' ? 'billing' : 'profile';
+  const tabParam = searchParams.get('tab');
+  const initialTab =
+    tabParam === 'billing' || tabParam === 'security' ? tabParam : 'profile';
   const [tab, setTab] = useState(initialTab);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [devResetToken, setDevResetToken] = useState(null);
   const [profile, setProfile] = useState({
     name: '',
     email: '',
@@ -52,6 +60,8 @@ export default function Settings() {
     province: '',
   });
   const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [billingInfo, setBillingInfo] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingFetching, setBillingFetching] = useState(false);
@@ -81,6 +91,51 @@ export default function Settings() {
     }
   }, [store, user]);
 
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreview(null);
+      return undefined;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
+
+  const handleLogoSelect = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.type)) {
+      toast('Please choose a JPEG, PNG, WebP, or GIF image', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Logo must be smaller than 5 MB', 'error');
+      return;
+    }
+
+    setLogoFile(file);
+    setLogoUploading(true);
+    try {
+      await updateStore(
+        {
+          name: profile.name || store?.name,
+        },
+        file
+      );
+      setLogoFile(null);
+      toast('Logo updated successfully', 'success');
+    } catch (err) {
+      toast(
+        err instanceof ApiError ? err.message : 'Failed to upload logo. Please try again.',
+        'error'
+      );
+    } finally {
+      setLogoUploading(false);
+    }
+  };
   useEffect(() => {
     if (tab !== 'billing') return undefined;
 
@@ -242,27 +297,47 @@ export default function Settings() {
         {tab === 'profile' && (
           <Card className="animate-fade-in space-y-6">
             <div className="flex items-center gap-4 pb-6 border-b border-line-subtle">
-              {storeForm.logo ? (
-                <img src={storeForm.logo} alt="" className="w-16 h-16 rounded-2xl object-cover" />
-              ) : (
-                <Avatar name={profile.name} size="xl" />
-              )}
-              <div>
-                <p className="font-bold text-ink text-lg tracking-tight">{profile.name}</p>
+              <div className="relative flex-shrink-0">
+                {logoPreview || storeForm.logo ? (
+                  <img
+                    src={logoPreview || storeForm.logo}
+                    alt={`${profile.name || 'Store'} logo`}
+                    className="w-16 h-16 rounded-2xl object-cover border border-line-subtle shadow-sm"
+                  />
+                ) : (
+                  <Avatar name={profile.name} size="xl" />
+                )}
+                {logoUploading && (
+                  <div
+                    className="absolute inset-0 rounded-2xl bg-ink/45 flex items-center justify-center"
+                    aria-live="polite"
+                  >
+                    <RefreshCw size={18} className="text-white animate-spin" aria-hidden="true" />
+                    <span className="sr-only">Uploading logo</span>
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-ink text-lg tracking-tight truncate">
+                  {profile.name || 'Your Store'}
+                </p>
                 <label className="mt-2 inline-block cursor-pointer">
-                  <Button variant="secondary" size="sm" as="span">Change Logo</Button>
+                  <Button variant="secondary" size="sm" as="span" disabled={logoUploading || saving}>
+                    {logoUploading ? 'Uploading…' : storeForm.logo || logoPreview ? 'Change Logo' : 'Upload Logo'}
+                  </Button>
                   <input
                     type="file"
                     className="hidden"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
                     aria-label="Upload logo"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) setLogoFile(file);
-                    }}
+                    disabled={logoUploading || saving}
+                    onChange={handleLogoSelect}
                   />
                 </label>
-                {logoFile && <p className="text-xs text-muted mt-1">{logoFile.name}</p>}
+                <p className="text-xs text-muted mt-1.5">
+                  JPEG, PNG, WebP, or GIF · max 5 MB
+                  {logoFile ? ` · ${logoFile.name}` : ''}
+                </p>
               </div>
             </div>
 
@@ -559,26 +634,91 @@ export default function Settings() {
         {tab === 'security' && (
           <Card className="animate-fade-in space-y-6">
             <div>
-              <h3 className="font-semibold text-ink mb-2">Change Password</h3>
-              <p className="text-body text-xs mb-5">
-                Use the{' '}
-                <a href="/forgot-password" className="text-brand-600 hover:text-brand-700 font-medium">
-                  forgot password
-                </a>{' '}
-                flow to reset your password via email.
-              </p>
-            </div>
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+                  <KeyRound size={18} className="text-brand-600" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-ink mb-1">Forgot password</h3>
+                  <p className="text-body text-xs">
+                    We&apos;ll email a secure, time-limited reset link to your registered address.
+                    The link expires after one hour and can only be used once.
+                  </p>
+                </div>
+              </div>
 
-            <div className="pt-6 border-t border-line-subtle">
-              <h3 className="font-semibold text-ink mb-2">Two-Factor Authentication</h3>
-              <p className="text-body text-xs mb-4">Add an extra layer of security to your account.</p>
-              <Button variant="secondary" size="sm" disabled>Enable 2FA</Button>
-            </div>
+              <div className="rounded-xl border border-line bg-canvas/60 px-4 py-3 mb-4">
+                <p className="text-xs text-muted mb-1">Registered email</p>
+                <p className="text-sm font-medium text-ink flex items-center gap-2">
+                  <Mail size={14} className="text-muted shrink-0" aria-hidden="true" />
+                  {user?.email || '—'}
+                </p>
+              </div>
 
-            <div className="pt-6 border-t border-line-subtle">
-              <h3 className="font-semibold text-danger-600 mb-2">Danger Zone</h3>
-              <p className="text-body text-xs mb-4">Permanently delete your account and all associated data.</p>
-              <Button variant="danger" size="sm" disabled>Delete Account</Button>
+              {resetSent ? (
+                <div className="rounded-xl border border-green-200 bg-success-50 px-4 py-3 space-y-2">
+                  <p className="text-sm font-medium text-success-700">
+                    Password reset email sent successfully.
+                  </p>
+                  <p className="text-xs text-body">
+                    Check your inbox for a link to create a new password. If you don&apos;t see it,
+                    check spam or try again in a few minutes.
+                  </p>
+                  {devResetToken && (
+                    <p className="text-xs text-body pt-1">
+                      Development link:{' '}
+                      <Link
+                        href={`/reset-password?token=${devResetToken}`}
+                        className="text-brand-600 hover:text-brand-700 font-medium break-all"
+                      >
+                        Reset your password
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={resetSending || !user?.email}
+                    onClick={async () => {
+                      if (!user?.email) return;
+                      setResetError('');
+                      setResetSending(true);
+                      try {
+                        const data = await forgotPassword(user.email);
+                        if (data?.resetToken) setDevResetToken(data.resetToken);
+                        setResetSent(true);
+                        toast('Password reset email sent successfully', 'success');
+                      } catch (err) {
+                        const message =
+                          err instanceof ApiError
+                            ? err.message
+                            : 'Unable to send reset email. Please try again.';
+                        setResetError(message);
+                        toast(message, 'error');
+                      } finally {
+                        setResetSending(false);
+                      }
+                    }}
+                  >
+                    {resetSending ? 'Sending…' : 'Send reset email'}
+                  </Button>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                  >
+                    Open forgot password page
+                  </Link>
+                </div>
+              )}
+
+              {resetError && (
+                <p className="text-xs text-danger-600 mt-3" role="alert">
+                  {resetError}
+                </p>
+              )}
             </div>
           </Card>
         )}

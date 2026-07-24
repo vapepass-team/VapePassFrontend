@@ -1,23 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Mail, Lock } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Mail, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import LoginLayout from '@/components/LoginLayout';
 import GuestGuard from '@/components/GuestGuard';
-import { Input, FormField, InputGroup, InputIcon } from '@/components/ui/Input';
+import { Input, FormField, InputGroup, InputIcon, InputToggle } from '@/components/ui/Input';
 import { useAuth } from '@/context/AuthContext';
 import { ApiError, fieldErrorsToMap } from '@/lib/api';
 import { canAccessDashboard } from '@/lib/subscription';
+import { needsEmailVerification } from '@/lib/email-verification';
 
-export default function Login() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const resetSuccess = searchParams.get('reset') === 'success';
 
   const validate = () => {
     const next = {};
@@ -40,6 +44,11 @@ export default function Login() {
 
       if (data.user?.role === 'admin') {
         router.replace('/admin');
+        return;
+      }
+
+      if (needsEmailVerification(data.user)) {
+        router.replace('/verify-email');
         return;
       }
 
@@ -72,103 +81,127 @@ export default function Login() {
   };
 
   return (
-    <GuestGuard>
-      <LoginLayout
-        footer={
-          <p className="text-sm text-body">
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/register"
-              className="font-semibold text-brand-600 hover:text-brand-700 transition-colors"
-            >
-              Create account
-            </Link>
+    <LoginLayout
+      footer={
+        <p className="text-sm text-body">
+          Don&apos;t have an account?{' '}
+          <Link
+            href="/register"
+            className="font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+          >
+            Create account
+          </Link>
+        </p>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {resetSuccess && (
+          <p
+            className="text-sm text-success-700 bg-success-50 border border-green-200 rounded-xl px-4 py-3 flex items-start gap-2"
+            role="status"
+          >
+            <CheckCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>Password updated successfully. Sign in with your new password.</span>
           </p>
-        }
-      >
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          {errors._form && (
-            <p
-              className="text-sm text-danger-600 bg-danger-50 border border-red-200 rounded-xl px-4 py-3"
-              role="alert"
+        )}
+
+        {errors._form && (
+          <p
+            className="text-sm text-danger-600 bg-danger-50 border border-red-200 rounded-xl px-4 py-3"
+            role="alert"
+          >
+            {errors._form}
+          </p>
+        )}
+
+        <FormField
+          label="Email"
+          htmlFor="email"
+          error={errors.email}
+          required
+          className="[&_label]:font-semibold [&_label]:text-ink"
+        >
+          <InputGroup>
+            <InputIcon>
+              <Mail size={16} />
+            </InputIcon>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="pl-10 h-12 rounded-xl"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={Boolean(errors.email)}
+            />
+          </InputGroup>
+        </FormField>
+
+        <FormField
+          label="Password"
+          htmlFor="password"
+          error={errors.password}
+          required
+          className="[&_label]:font-semibold [&_label]:text-ink"
+        >
+          <InputGroup>
+            <InputIcon>
+              <Lock size={16} />
+            </InputIcon>
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className="pl-10 pr-10 h-12 rounded-xl"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={Boolean(errors.password)}
+            />
+            <InputToggle
+              label={showPassword ? 'Hide password' : 'Show password'}
+              onClick={() => setShowPassword((v) => !v)}
             >
-              {errors._form}
-            </p>
-          )}
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </InputToggle>
+          </InputGroup>
+        </FormField>
 
-          <FormField
-            label="Email"
-            htmlFor="email"
-            error={errors.email}
-            required
-            className="[&_label]:font-semibold [&_label]:text-ink"
+        <div className="flex justify-end -mt-1">
+          <Link
+            href="/forgot-password"
+            className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
           >
-            <InputGroup>
-              <InputIcon>
-                <Mail size={16} />
-              </InputIcon>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                className="pl-10 h-12 rounded-xl"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={Boolean(errors.email)}
-              />
-            </InputGroup>
-          </FormField>
+            Forgot password?
+          </Link>
+        </div>
 
-          <FormField
-            label="Password"
-            htmlFor="password"
-            error={errors.password}
-            required
-            className="[&_label]:font-semibold [&_label]:text-ink"
-          >
-            <InputGroup>
-              <InputIcon>
-                <Lock size={16} />
-              </InputIcon>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="pl-10 h-12 rounded-xl"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                error={Boolean(errors.password)}
-              />
-            </InputGroup>
-          </FormField>
+        <button
+          type="submit"
+          disabled={loading}
+          className={[
+            'w-full h-12 mt-1 text-[15px] font-semibold text-white rounded-xl',
+            'bg-brand-600 hover:bg-brand-700 transition-all duration-200',
+            'shadow-[0_8px_20px_rgba(124,58,237,0.28)] hover:shadow-[0_10px_24px_rgba(124,58,237,0.35)]',
+            'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-500/30',
+            'disabled:opacity-60 disabled:pointer-events-none disabled:shadow-none',
+            'select-none touch-manipulation',
+          ].join(' ')}
+        >
+          {loading ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+    </LoginLayout>
+  );
+}
 
-          <div className="flex justify-end -mt-1">
-            <Link
-              href="/forgot-password"
-              className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
-            >
-              Forgot password?
-            </Link>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={[
-              'w-full h-12 mt-1 text-[15px] font-semibold text-white rounded-xl',
-              'bg-brand-600 hover:bg-brand-700 transition-all duration-200',
-              'shadow-[0_8px_20px_rgba(124,58,237,0.28)] hover:shadow-[0_10px_24px_rgba(124,58,237,0.35)]',
-              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-500/30',
-              'disabled:opacity-60 disabled:pointer-events-none disabled:shadow-none',
-              'select-none touch-manipulation',
-            ].join(' ')}
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-      </LoginLayout>
+export default function Login() {
+  return (
+    <GuestGuard>
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
     </GuestGuard>
   );
 }

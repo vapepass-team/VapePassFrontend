@@ -30,6 +30,7 @@ import {
 } from '@/lib/subscription';
 import { ApiError } from '@/lib/api';
 import { markWelcomePending } from '@/lib/onboarding';
+import { needsEmailVerification } from '@/lib/email-verification';
 
 const PLAN_PERKS = [
   { icon: Lock, label: 'Dashboard unlock after payment' },
@@ -54,6 +55,12 @@ export default function SubscribePage() {
   const billingFlag = searchParams.get('billing');
   const sessionId = searchParams.get('session_id');
   const checkingStatus = storeLoading || (!store && !storeError);
+
+  useEffect(() => {
+    if (needsEmailVerification(user)) {
+      router.replace('/verify-email');
+    }
+  }, [user, router]);
 
   useEffect(() => {
     getBillingInfo()
@@ -177,13 +184,17 @@ export default function SubscribePage() {
     </button>
   );
 
-  if (checkingStatus) {
+  if (checkingStatus || needsEmailVerification(user)) {
     return (
       <AuthGuard>
         <div className="register-page login-page flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f6f7fb] px-4">
           <Logo showText variant="sparkle" landing size={40} />
           <Spinner size="lg" />
-          <p className="text-sm text-body">Checking subscription status…</p>
+          <p className="text-sm text-body">
+            {needsEmailVerification(user)
+              ? 'Redirecting to email verification…'
+              : 'Checking subscription status…'}
+          </p>
         </div>
       </AuthGuard>
     );

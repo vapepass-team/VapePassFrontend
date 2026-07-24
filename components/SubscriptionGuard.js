@@ -4,13 +4,14 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { canAccessDashboard } from '@/lib/subscription';
+import { needsEmailVerification } from '@/lib/email-verification';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
 
 /**
  * Locks the retailer dashboard until billing allows access.
  * Active and Payment Failed (past_due / retry window) may enter the dashboard.
- * Trial / Paused / Expired redirect to /subscribe.
+ * Unverified email → /verify-email. Trial / Paused / Expired → /subscribe.
  *
  * Missing store or a failed status fetch must NOT be treated as inactive.
  */
@@ -33,18 +34,33 @@ export default function SubscriptionGuard({ children }) {
     !storeError &&
     (loading || storeLoading);
 
+  const needsVerify = isAuthenticated && needsEmailVerification(user);
+
   const needsSubscription =
     isAuthenticated &&
     user?.role !== 'admin' &&
     store &&
+    !needsVerify &&
     !canAccessDashboard(store.subscriptionStatus);
 
   useEffect(() => {
     if (loading || storeLoading || awaitingStore || storeError) return;
+    if (needsVerify) {
+      router.replace('/verify-email');
+      return;
+    }
     if (needsSubscription) {
       router.replace('/subscribe');
     }
-  }, [loading, storeLoading, awaitingStore, storeError, needsSubscription, router]);
+  }, [
+    loading,
+    storeLoading,
+    awaitingStore,
+    storeError,
+    needsVerify,
+    needsSubscription,
+    router,
+  ]);
 
   if (loading || awaitingStore || storeLoading) {
     return (
@@ -74,7 +90,7 @@ export default function SubscriptionGuard({ children }) {
     );
   }
 
-  if (needsSubscription) return null;
+  if (needsVerify || needsSubscription) return null;
 
   return children;
 }

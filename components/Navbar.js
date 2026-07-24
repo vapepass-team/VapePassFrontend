@@ -10,7 +10,6 @@ export default function Navbar({ onMenuClick }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const displayName = user ? `${user.firstName} ${user.lastName}` : 'Owner';
   const storeName = store?.name || 'Your Store';
 
   useEffect(() => {
@@ -51,8 +50,10 @@ export default function Navbar({ onMenuClick }) {
             aria-haspopup="menu"
             aria-label="Account menu"
           >
-            <Avatar name={displayName} size="sm" />
-            <span className="text-sm font-medium text-ink hidden sm:block">{user?.firstName || 'Owner'}</span>
+            <Avatar name={storeName} src={store?.logo || undefined} size="sm" />
+            <span className="text-sm font-medium text-ink hidden sm:block truncate max-w-[10rem]">
+              {storeName}
+            </span>
             <ChevronDown size={14} className={`text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
           </button>
 

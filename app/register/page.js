@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Store, User, Phone, Globe, MapPin } from 'lucide-react';
+import { Mail, Lock, Store, User, Phone, Globe, MapPin, Eye, EyeOff } from 'lucide-react';
 import RegisterLayout from '@/components/RegisterLayout';
 import GuestGuard from '@/components/GuestGuard';
-import { Input, FormField, InputGroup, InputIcon } from '@/components/ui/Input';
+import { Input, FormField, InputGroup, InputIcon, InputToggle } from '@/components/ui/Input';
 import { useAuth } from '@/context/AuthContext';
 import { ApiError, fieldErrorsToMap } from '@/lib/api';
 import { CANADIAN_PROVINCES, COUNTRY_OPTIONS } from '@/lib/store-utils';
@@ -37,6 +37,8 @@ export default function Register() {
   const [form, setForm] = useState(INITIAL);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
@@ -84,7 +86,8 @@ export default function Register() {
         subscriptionPlan: form.subscriptionPlan,
         password: form.password,
       });
-      router.push('/subscribe');
+
+      router.push('/verify-email');
     } catch (err) {
       if (err instanceof ApiError) {
         const fieldErrors = fieldErrorsToMap(err.errors);
@@ -99,7 +102,7 @@ export default function Register() {
   };
 
   return (
-    <GuestGuard redirectTo="/subscribe">
+    <GuestGuard>
       <RegisterLayout
         footer={
           <p className="text-sm text-body">
@@ -332,14 +335,21 @@ export default function Register() {
                   </InputIcon>
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={form.password}
                     onChange={set('password')}
                     hasIcon
                     error={errors.password}
                     placeholder="Min. 8 characters"
+                    className="pr-10"
                   />
+                  <InputToggle
+                    label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword((v) => !v)}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </InputToggle>
                 </InputGroup>
               </FormField>
 
@@ -355,14 +365,21 @@ export default function Register() {
                   </InputIcon>
                   <Input
                     id="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={form.confirmPassword}
                     onChange={set('confirmPassword')}
                     hasIcon
                     error={errors.confirmPassword}
                     placeholder="Repeat password"
+                    className="pr-10"
                   />
+                  <InputToggle
+                    label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </InputToggle>
                 </InputGroup>
               </FormField>
             </div>
