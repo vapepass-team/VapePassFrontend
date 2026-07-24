@@ -44,8 +44,8 @@ const NUDGE_VISIBLE_MS = 8000;
 const NUDGE_EXIT_MS = 280;
 
 /** Prefer API reply text; if missing, turn option labels into a soft conversational prompt (no chips). */
-function replyTextFromSession(session) {
-  const reply = rewriteBrandQuestion(session?.reply || '');
+function replyTextFromSession(session, siteContext = null) {
+  const reply = rewriteBrandQuestion(session?.reply || '', siteContext);
   if (reply) return reply;
   const labels = normalizeOptions(session?.options)
     .map((o) => o.label)
@@ -57,8 +57,8 @@ function replyTextFromSession(session) {
 }
 
 /** Break long assistant paragraphs into shorter scan-friendly lines. */
-function formatReadableAssistantReply(text) {
-  const raw = rewriteBrandQuestion(text);
+function formatReadableAssistantReply(text, siteContext = null) {
+  const raw = rewriteBrandQuestion(text, siteContext);
   if (!raw) return '';
   // Keep intentional newlines; also split dense sentences into shorter blocks.
   const chunks = raw
@@ -155,6 +155,8 @@ export default function LandingChatWidget({
   /** Accumulated preference intent for structured recommendation cards. */
   const preferenceIntentRef = useRef(null);
   const preferenceMessagesRef = useRef([]);
+  /** Store/site tokens for scrubbing fake brand examples in embed + landing chat. */
+  const brandSiteContextRef = useRef(null);
 
   const storageKey = storeId ? `${SESSION_KEY_PREFIX}${storeId}` : null;
   const guidedKey = storeId ? `${GUIDED_KEY_PREFIX}${storeId}` : null;
@@ -164,6 +166,15 @@ export default function LandingChatWidget({
     setEmbedParentOrigin(parentOrigin);
     return () => setEmbedParentOrigin(null);
   }, [embedMode, parentOrigin]);
+
+  useEffect(() => {
+    brandSiteContextRef.current = config
+      ? {
+          storeName: config.storeName || null,
+          allowedHostname: config.allowedHostname || null,
+        }
+      : null;
+  }, [config]);
 
   // Set parent origin synchronously so the first config request includes the header.
   if (embedMode && typeof window !== 'undefined') {
@@ -301,8 +312,12 @@ export default function LandingChatWidget({
 
   const applyGuidedReply = useCallback(
     (session, { appendAssistantText = true, prependMessages = [] } = {}) => {
+      const siteContext = brandSiteContextRef.current;
       const replyType = session.replyType || 'text';
-      const reply = formatReadableAssistantReply(replyTextFromSession(session));
+      const reply = formatReadableAssistantReply(
+        replyTextFromSession(session, siteContext),
+        siteContext
+      );
       const optionList = normalizeOptions(session.options);
       lastApiOptionsRef.current = optionList;
 
