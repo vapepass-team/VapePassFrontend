@@ -72,6 +72,7 @@ export default function Settings() {
   const [retryError, setRetryError] = useState('');
 
   const pageLoading = authLoading || storeLoading || !store || !user;
+  const storeForm = storeToForm(store);
 
   const loadBillingInfo = async () => {
     const info = await getBillingInfo();
@@ -262,7 +263,6 @@ export default function Settings() {
     { id: 'security', label: 'Security' },
   ];
 
-  const storeForm = storeToForm(store);
   const subscriptionStatus = billingInfo?.subscriptionStatus || store?.subscriptionStatus;
   const paymentFailed =
     Boolean(billingInfo?.paymentFailed) ||
