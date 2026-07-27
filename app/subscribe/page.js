@@ -172,7 +172,7 @@ export default function SubscribePage() {
     }
   };
 
-  const price = billingInfo?.monthlyPrice ?? 99;
+  const price = billingInfo?.monthlyPrice ?? 100;
 
   const signOutFooter = (
     <button

@@ -533,7 +533,7 @@ export default function Settings() {
                   </div>
                   <div>
                     <p className="font-bold text-ink">Pro Plan</p>
-                    <p className="text-body text-sm">${billingInfo?.monthlyPrice ?? 99} / month</p>
+                    <p className="text-body text-sm">${billingInfo?.monthlyPrice ?? 100} / month</p>
                   </div>
                 </div>
                 <Badge variant={getSubscriptionBadgeVariant(subscriptionStatus)}>
@@ -600,7 +600,7 @@ export default function Settings() {
                 <div className="flex flex-wrap gap-3">
                   {showSubscribeButton && (
                     <Button variant="secondary" size="sm" onClick={startCheckout} disabled={billingLoading}>
-                      <CreditCard size={14} /> Subscribe — $99/mo
+                      <CreditCard size={14} /> Subscribe — $100/mo
                     </Button>
                   )}
                   {showManageSubscription && (

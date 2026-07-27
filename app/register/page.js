@@ -324,7 +324,7 @@ export default function Register() {
                   onChange={set('subscriptionPlan')}
                   className={selectClassName}
                 >
-                  <option value="pro">Pro — $99/month</option>
+                  <option value="pro">Pro — $100/month</option>
                 </select>
               </FormField>
 

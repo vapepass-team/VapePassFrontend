@@ -78,7 +78,7 @@ export default function Sidebar({ onClose, onNeedHelp }) {
           <Sparkles size={14} className="text-brand-600" aria-hidden="true" />
           <p className="text-xs font-semibold text-ink">VapePass Plan</p>
         </div>
-        <p className="text-xs text-body mb-2">$99/mo</p>
+        <p className="text-xs text-body mb-2">$100/mo</p>
         <Badge variant={getSubscriptionBadgeVariant(store?.subscriptionStatus)}>
           {getSubscriptionStatusLabel(store?.subscriptionStatus)}
         </Badge>

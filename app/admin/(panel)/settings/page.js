@@ -20,7 +20,7 @@ export default function AdminSettingsPage() {
 
         <div className="border-t border-line pt-4">
           <p className="text-sm font-semibold text-ink mb-2">Platform billing</p>
-          <p className="text-sm text-body">Store subscription: $99/month via Stripe</p>
+          <p className="text-sm text-body">Store subscription: $100/month via Stripe</p>
           <p className="text-xs text-muted mt-2">
             AI Assistant requires OPENAI_API_KEY and SCRAPINGBEE_API_KEY in backend .env.
           </p>
