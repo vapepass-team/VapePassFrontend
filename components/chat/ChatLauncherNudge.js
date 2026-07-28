@@ -3,11 +3,7 @@
 import { Sparkles, X } from 'lucide-react';
 
 export const LAUNCHER_NUDGE_MESSAGES = [
-  'Need help finding the perfect vape?',
-  'Looking for product recommendations?',
-  'Ask me for personalized recommendations!',
-  'Need help choosing the right product?',
-  "I'm here to help you find the perfect vape.",
+  'Feeling overwhelmed by all the flavors? Let me help you find the perfect one 👀',
 ];
 
 export const LAUNCHER_NUDGE_SESSION_KEY = 'vapepass_launcher_nudge_v3';
