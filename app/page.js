@@ -1,6 +1,5 @@
 'use client';
 
-import { Suspense } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Sparkles, ChevronRight } from 'lucide-react';
 import Logo from '@/components/Logo';
@@ -10,7 +9,7 @@ import TwoEnginesSection from '@/components/TwoEnginesSection';
 import ComplianceShieldSection from '@/components/ComplianceShieldSection';
 import SommelierFeatureSection from '@/components/SommelierFeatureSection';
 import PricingSection from '@/components/PricingSection';
-import LandingChatWidget from '@/components/LandingChatWidget';
+import LandingChatPromo from '@/components/LandingChatPromo';
 
 export default function Landing() {
   return (
@@ -83,10 +82,7 @@ export default function Landing() {
         <div className="h-16 sm:h-24 md:h-32" aria-hidden="true" />
       </section>
 
-      {/* Temporary: landing chatbot for local testing — remove before production */}
-      <Suspense fallback={null}>
-        <LandingChatWidget />
-      </Suspense>
+      <LandingChatPromo />
 
       <TwoEnginesSection />
 
