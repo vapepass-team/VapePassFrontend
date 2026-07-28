@@ -8,6 +8,13 @@ export const LAUNCHER_NUDGE_MESSAGES = [
 
 export const LAUNCHER_NUDGE_SESSION_KEY = 'vapepass_launcher_nudge_v3';
 
+/** Keep trailing emoji outside gradient text clip so it stays visible. */
+function splitTrailingEmoji(message) {
+  const match = String(message || '').match(/^(.*?)(\s*)(\p{Extended_Pictographic}+)$/u);
+  if (!match) return { text: message, emoji: '' };
+  return { text: match[1], emoji: match[3] };
+}
+
 /**
  * Invite bubble above the chat FAB. Presentation only — does not change chat logic.
  */
@@ -19,6 +26,8 @@ export default function ChatLauncherNudge({
   onDismiss,
 }) {
   if (!visible && !exiting) return null;
+
+  const { text, emoji } = splitTrailingEmoji(message);
 
   return (
     <div
@@ -38,7 +47,10 @@ export default function ChatLauncherNudge({
         <span className="chat-launcher-nudge-icon" aria-hidden="true">
           <Sparkles size={14} strokeWidth={2.25} />
         </span>
-        <span className="chat-launcher-nudge-text">{message}</span>
+        <span className="chat-launcher-nudge-text">
+          <span className="chat-launcher-nudge-text-shine">{text}</span>
+          {emoji ? <span className="chat-launcher-nudge-emoji"> {emoji}</span> : null}
+        </span>
       </button>
       <button
         type="button"
