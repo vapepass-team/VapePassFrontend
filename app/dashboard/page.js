@@ -98,8 +98,14 @@ export default function Dashboard() {
   }, [load]);
 
   const planLabel = getSubscriptionStatusLabel(store?.subscriptionStatus);
-  const syncLabel = status?.inventorySyncStatus || 'idle';
   const productCount = status?.inventoryProductCount ?? 0;
+  // ON after a successful (or completed) inventory sync; OFF until then (not "Idle")
+  const inventorySynced = Boolean(
+    status?.inventoryInitialSyncedAt ||
+      status?.inventorySyncStatus === 'success' ||
+      productCount > 0
+  );
+  const syncLabel = inventorySynced ? 'ON' : 'OFF';
   const assistantLive = Boolean(status?.assistantEnabled || status?.isLive);
   const paymentFailed = store?.subscriptionStatus === 'past_due';
 
