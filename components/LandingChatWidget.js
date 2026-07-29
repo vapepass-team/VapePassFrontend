@@ -21,6 +21,7 @@ import {
   normalizeOptions,
   stripInteractiveOptions,
   rewriteBrandQuestion,
+  isNoBrandPreference,
 } from '@/lib/chat/conversation-flow';
 import {
   extractIntent,
@@ -551,6 +552,7 @@ export default function LandingChatWidget({
       const nluHit = matchOptionWithNlu(trimmed, lastApiOptionsRef.current);
       const prevIntent = preferenceIntentRef.current;
       const isClosing = detectsConversationEnd(trimmed);
+      const isNoBrandPref = isNoBrandPreference(trimmed);
 
       // Never enrich or accumulate prefs for polite closings — send plain text only
       if (isClosing) {
@@ -560,6 +562,7 @@ export default function LandingChatWidget({
 
       const productTypeSwitched = Boolean(
         !isClosing &&
+          !isNoBrandPref &&
           intent.productType &&
           prevIntent?.productType &&
           intent.productType !== prevIntent.productType
@@ -568,6 +571,7 @@ export default function LandingChatWidget({
       const afterCompletedRecommendation = Boolean(recommendedProduct);
       const startNewPass =
         !isClosing &&
+        !isNoBrandPref &&
         (productTypeSwitched ||
           (afterCompletedRecommendation &&
             detectsNewRecommendationPass(trimmed, prevIntent) &&
@@ -584,6 +588,12 @@ export default function LandingChatWidget({
         if (afterCompletedRecommendation) {
           setRecommendedProduct(null);
         }
+      } else if (!isClosing && isNoBrandPref && prevIntent?.productType) {
+        // Keep the locked category — "No Preference" is brand-only, never a category switch
+        preferenceIntentRef.current = {
+          ...prevIntent,
+          productType: prevIntent.productType,
+        };
       } else if (!isClosing && (nluHit || intent.lookingFor?.length)) {
         preferenceMessagesRef.current = [...preferenceMessagesRef.current, trimmed].slice(-12);
         preferenceIntentRef.current = {
@@ -603,11 +613,21 @@ export default function LandingChatWidget({
       }
 
       const matched = !isClosing && nluHit?.option ? nluHit.option : null;
-      const outbound = matched
-        ? `::option::${matched.id}`
-        : isClosing
-          ? trimmed
-          : buildEnrichedSearchMessage(trimmed, preferenceIntentRef.current);
+      let outbound;
+      if (matched) {
+        outbound = `::option::${matched.id}`;
+      } else if (isClosing) {
+        outbound = trimmed;
+      } else if (isNoBrandPref) {
+        // Explicitly keep category in the outbound payload so the backend cannot drift
+        const lockedType =
+          preferenceIntentRef.current?.productType || prevIntent?.productType || null;
+        outbound = lockedType
+          ? `No Preference (any brand, keep category: ${lockedType})`
+          : 'No Preference';
+      } else {
+        outbound = buildEnrichedSearchMessage(trimmed, preferenceIntentRef.current);
+      }
 
       try {
         const session = await sendAssistantMessage(storeId, sessionKey, outbound);
