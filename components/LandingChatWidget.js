@@ -121,6 +121,60 @@ function productFromApi(product) {
   };
 }
 
+/** Canonical category key for "No Preference (keep category: …)" — never mix families. */
+function lockedCategoryLabel(intentOrPrefs) {
+  if (!intentOrPrefs) return null;
+  // Only product-type locks — never flavor "category" fields like "Citrus"
+  const raw = intentOrPrefs.productType || intentOrPrefs.lockedProductType || null;
+  if (!raw) return null;
+  const key = String(raw).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const map = {
+    e_liquid: 'E-Liquid',
+    eliquid: 'E-Liquid',
+    'e-liquid': 'E-Liquid',
+    disposable: 'Disposable',
+    device: 'Device',
+    pod: 'Pod System',
+    pod_system: 'Pod System',
+    prefilled: 'Prefilled Pod',
+    prefilled_pod: 'Prefilled Pod',
+    cartridge: 'Cartridge',
+    accessory: 'Accessory',
+    pouch: 'Nicotine Pouch',
+    coil: 'Coil',
+    battery: 'Battery',
+  };
+  if (map[key]) return map[key];
+  // Already a display label from frontend NLU
+  if (/e-?liquid/i.test(String(raw))) return 'E-Liquid';
+  if (/disposable/i.test(String(raw))) return 'Disposable';
+  if (/pre-?filled/i.test(String(raw))) return 'Prefilled Pod';
+  if (/cartridge/i.test(String(raw))) return 'Cartridge';
+  if (/pod/i.test(String(raw))) return 'Pod System';
+  if (/device|kit/i.test(String(raw))) return 'Device';
+  return String(raw);
+}
+
+/** Keep local preference memory aligned with the backend funnel lock. */
+function syncPreferenceIntentFromSession(session, preferenceIntentRef) {
+  const prefs = session?.funnelState?.preferences;
+  const locked =
+    session?.funnelState?.lockedProductType || prefs?.productType || null;
+  if (!locked) return;
+
+  const fromPrefs = intentFromPreferences(prefs || { productType: locked });
+  const prev = preferenceIntentRef.current || {};
+  preferenceIntentRef.current = {
+    ...prev,
+    ...(fromPrefs || {}),
+    productType:
+      fromPrefs?.productType ||
+      lockedCategoryLabel({ productType: locked }) ||
+      prev.productType ||
+      null,
+  };
+}
+
 export default function LandingChatWidget({
   storeId: storeIdProp = null,
   embedMode = false,
@@ -301,6 +355,8 @@ export default function LandingChatWidget({
       if (session.recommendationRestart) {
         preferenceIntentRef.current = null;
         preferenceMessagesRef.current = [];
+      } else {
+        syncPreferenceIntentFromSession(session, preferenceIntentRef);
       }
 
       if (session.locked) {
@@ -620,8 +676,9 @@ export default function LandingChatWidget({
         outbound = trimmed;
       } else if (isNoBrandPref) {
         // Explicitly keep category in the outbound payload so the backend cannot drift
-        const lockedType =
-          preferenceIntentRef.current?.productType || prevIntent?.productType || null;
+        const lockedType = lockedCategoryLabel(
+          preferenceIntentRef.current || prevIntent || null
+        );
         outbound = lockedType
           ? `No Preference (any brand, keep category: ${lockedType})`
           : 'No Preference';
