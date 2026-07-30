@@ -22,6 +22,7 @@ import {
   stripInteractiveOptions,
   rewriteBrandQuestion,
   isNoBrandPreference,
+  detectsUnderage,
 } from '@/lib/chat/conversation-flow';
 import {
   extractIntent,
@@ -609,6 +610,8 @@ export default function LandingChatWidget({
       const prevIntent = preferenceIntentRef.current;
       const isClosing = detectsConversationEnd(trimmed);
       const isNoBrandPref = isNoBrandPreference(trimmed);
+      const legalAgeNow = config?.legalAge ?? 19;
+      const isUnderageAdmission = detectsUnderage(trimmed, legalAgeNow);
 
       // Never enrich or accumulate prefs for polite closings — send plain text only
       if (isClosing) {
@@ -616,8 +619,16 @@ export default function LandingChatWidget({
         preferenceMessagesRef.current = [];
       }
 
+      // Underage admission — do not enrich or carry shopping preferences
+      if (isUnderageAdmission) {
+        preferenceIntentRef.current = null;
+        preferenceMessagesRef.current = [];
+        setRecommendedProduct(null);
+      }
+
       const productTypeSwitched = Boolean(
         !isClosing &&
+          !isUnderageAdmission &&
           !isNoBrandPref &&
           intent.productType &&
           prevIntent?.productType &&
@@ -627,6 +638,7 @@ export default function LandingChatWidget({
       const afterCompletedRecommendation = Boolean(recommendedProduct);
       const startNewPass =
         !isClosing &&
+        !isUnderageAdmission &&
         !isNoBrandPref &&
         (productTypeSwitched ||
           (afterCompletedRecommendation &&
@@ -634,7 +646,7 @@ export default function LandingChatWidget({
             !detectsRecommendationRefine(trimmed)) ||
           (detectsRecommendationRestart(trimmed) && !detectsRecommendationRefine(trimmed)));
 
-      if (!isClosing && startNewPass) {
+      if (!isClosing && !isUnderageAdmission && startNewPass) {
         // Brand-new recommendation pass — clear Looking For / preference memory
         preferenceMessagesRef.current = intent.lookingFor?.length || intent.productType ? [trimmed] : [];
         preferenceIntentRef.current =
@@ -644,13 +656,17 @@ export default function LandingChatWidget({
         if (afterCompletedRecommendation) {
           setRecommendedProduct(null);
         }
-      } else if (!isClosing && isNoBrandPref && prevIntent?.productType) {
+      } else if (!isClosing && !isUnderageAdmission && isNoBrandPref && prevIntent?.productType) {
         // Keep the locked category — "No Preference" is brand-only, never a category switch
         preferenceIntentRef.current = {
           ...prevIntent,
           productType: prevIntent.productType,
         };
-      } else if (!isClosing && (nluHit || intent.lookingFor?.length)) {
+      } else if (
+        !isClosing &&
+        !isUnderageAdmission &&
+        (nluHit || intent.lookingFor?.length)
+      ) {
         preferenceMessagesRef.current = [...preferenceMessagesRef.current, trimmed].slice(-12);
         preferenceIntentRef.current = {
           ...intent,
@@ -668,11 +684,13 @@ export default function LandingChatWidget({
         };
       }
 
-      const matched = !isClosing && nluHit?.option ? nluHit.option : null;
+      const matched =
+        !isClosing && !isUnderageAdmission && nluHit?.option ? nluHit.option : null;
       let outbound;
       if (matched) {
         outbound = `::option::${matched.id}`;
-      } else if (isClosing) {
+      } else if (isClosing || isUnderageAdmission) {
+        // Send plain text so backend underage/end detectors see the raw admission
         outbound = trimmed;
       } else if (isNoBrandPref) {
         // Explicitly keep category in the outbound payload so the backend cannot drift
@@ -708,7 +726,11 @@ export default function LandingChatWidget({
           const lockContent =
             session.reply ||
             session.messages?.[session.messages.length - 1]?.content ||
+            config?.lockMessage ||
             'This conversation has ended.';
+          preferenceIntentRef.current = null;
+          preferenceMessagesRef.current = [];
+          setRecommendedProduct(null);
           setTimeline((prev) => [
             ...deactivateInteractiveActions(prev),
             {
@@ -735,7 +757,17 @@ export default function LandingChatWidget({
         setSending(false);
       }
     },
-    [locked, sending, storeId, sessionKey, applySession, appendTimeline, applyGuidedReply, recommendedProduct]
+    [
+      locked,
+      sending,
+      storeId,
+      sessionKey,
+      applySession,
+      appendTimeline,
+      applyGuidedReply,
+      recommendedProduct,
+      config,
+    ]
   );
 
   const legalAge = config?.legalAge ?? 19;
